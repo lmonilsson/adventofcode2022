@@ -12,39 +12,13 @@ namespace Day11
                 .Where(x => !string.IsNullOrEmpty(x))
                 .ToList();
 
-            var monkeys = Parse(input);
+            var monkeysPart1 = Parse(input);
+            SimulateMonkeys(monkeysPart1, 20, true);
+            Console.WriteLine($"Part 1: {CalculateMonkeyBusiness(monkeysPart1)}");
 
-            for (int round = 0; round < 20; round++)
-            {
-                foreach (var monkey in monkeys)
-                {
-                    var toMove = new List<(Item Item, int MonkeyIdx)>();
-                    for (int itemIdx = 0; itemIdx < monkey.Items.Count; itemIdx++)
-                    {
-                        monkey.NumInspections++;
-
-                        var item = monkey.Items[itemIdx];
-                        item.WorryLevel = monkey.Operation(item.WorryLevel) / 3;
-                        if (item.WorryLevel % monkey.TestDivisibleBy == 0)
-                        {
-                            toMove.Add((item, monkey.ThrowToIfTrue));
-                        }
-                        else
-                        {
-                            toMove.Add((item, monkey.ThrowToIfFalse));
-                        }
-                    }
-
-                    foreach (var move in toMove)
-                    {
-                        monkey.Items.Remove(move.Item);
-                        monkeys[move.MonkeyIdx].Items.Add(move.Item);
-                    }
-                }
-            }
-
-            var monkeyBusiness = monkeys.OrderByDescending(m => m.NumInspections).Take(2).Aggregate(1, (agg, m) => agg * m.NumInspections);
-            Console.WriteLine($"Part 1: {monkeyBusiness}");
+            var monkeysPart2 = Parse(input);
+            SimulateMonkeys(monkeysPart2, 10000, false);
+            Console.WriteLine($"Part 2: {CalculateMonkeyBusiness(monkeysPart2)}");
         }
 
         private static List<Monkey> Parse(List<string> input)
@@ -62,25 +36,25 @@ namespace Day11
                     .Select(x => new Item { WorryLevel = int.Parse(x) })
                     .ToList();
 
-                var opMatch = Regex.Match(input[i + 2], "new = old ([^ ]+) (.+)");
-                var op = opMatch.Groups[1].Value;
-                var operand = opMatch.Groups[2].Value;
+                var opSplit = input[i + 2].Split();
+                var op = opSplit[^2];
+                var operand = opSplit[^1];
 
-                Func<int, int> operation;
+                Func<long, long> operation;
                 if (operand == "old")
                 {
-                    operation = (int old) => old * old;
+                    operation = (long old) => old * old;
                 }
                 else
                 {
-                    var operandNum = int.Parse(operand);
+                    var operandNum = long.Parse(operand);
                     switch (op)
                     {
                         case "*":
-                            operation = (int old) => old * operandNum;
+                            operation = (long old) => old * operandNum;
                             break;
                         case "+":
-                            operation = (int old) => old + operandNum;
+                            operation = (long old) => old + operandNum;
                             break;
                         default:
                             throw new Exception($"Parse error: Unexpected operator {op}");
@@ -103,12 +77,60 @@ namespace Day11
 
             return monkeys;
         }
+
+        private static void SimulateMonkeys(List<Monkey> monkeys, int rounds, bool reducedWorry)
+        {
+            var normalizer = monkeys.Select(m => m.TestDivisibleBy).Aggregate(1L, (agg, m) => agg * m);
+
+            for (int round = 0; round < rounds; round++)
+            {
+                foreach (var monkey in monkeys)
+                {
+                    var toMove = new List<(Item Item, int MonkeyIdx)>();
+                    for (int itemIdx = 0; itemIdx < monkey.Items.Count; itemIdx++)
+                    {
+                        monkey.NumInspections++;
+
+                        var item = monkey.Items[itemIdx];
+
+                        item.WorryLevel = monkey.Operation(item.WorryLevel) % normalizer;
+                        if (reducedWorry)
+                        {
+                            item.WorryLevel /= 3;
+                        }
+
+                        if (item.WorryLevel % monkey.TestDivisibleBy == 0)
+                        {
+                            toMove.Add((item, monkey.ThrowToIfTrue));
+                        }
+                        else
+                        {
+                            toMove.Add((item, monkey.ThrowToIfFalse));
+                        }
+                    }
+
+                    foreach (var move in toMove)
+                    {
+                        monkey.Items.Remove(move.Item);
+                        monkeys[move.MonkeyIdx].Items.Add(move.Item);
+                    }
+                }
+            }
+        }
+
+        private static long CalculateMonkeyBusiness(List<Monkey> monkeys)
+        {
+            return monkeys
+                .OrderByDescending(m => m.NumInspections)
+                .Take(2)
+                .Aggregate(1L, (agg, m) => checked(agg * m.NumInspections));
+        }
     }
 
     internal class Monkey
     {
         public List<Item> Items { get; set; }
-        public Func<int, int> Operation { get; set; }
+        public Func<long, long> Operation { get; set; }
         public int TestDivisibleBy { get; set; }
         public int ThrowToIfTrue { get; set; }
         public int ThrowToIfFalse { get; set; }
@@ -117,6 +139,6 @@ namespace Day11
 
     internal class Item
     {
-        public int WorryLevel { get; set; }
+        public long WorryLevel { get; set; }
     }
 }
