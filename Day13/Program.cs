@@ -1,15 +1,58 @@
-﻿namespace Day13
+﻿using System.Text.RegularExpressions;
+
+namespace Day13
 {
     internal class Program
     {
         static void Main(string[] args)
         {
-            var lines = File.ReadLines("sample.txt")
-            //var lines = File.ReadLines("sample.txt")
+            //var packets = File.ReadLines("sample.txt")
+            var packets = File.ReadLines("input.txt")
                 .Where(x => !string.IsNullOrEmpty(x))
+                .Select(x => Value.Parse(x))
                 .ToList();
 
-            var first = Value.Parse(lines[3]);
+            var invalidPairIndices = new List<int>();
+            for (int i = 0; i < packets.Count; i += 2)
+            {
+                var first = packets[i];
+                var second = packets[i + 1];
+
+                if (first.CompareTo(second) <= 0)
+                {
+                    invalidPairIndices.Add(i / 2 + 1);
+                }
+            }
+
+            var invalidSum = invalidPairIndices.Sum();
+            Console.WriteLine($"Part 1: {invalidSum}");
+
+            var orderedPackets = packets.ToList();
+            orderedPackets.Sort((a, b) => a.CompareTo(b));
+
+            var dividerPacket1 = Value.Parse("[[2]]");
+            var dividerPacket2 = Value.Parse("[[6]]");
+            var dividerPacketsToInsert = new List<Value>
+            {
+                dividerPacket1,
+                dividerPacket2
+            };
+
+            for (int i = 0; i <= packets.Count && dividerPacketsToInsert.Any(); i++)
+            {
+                if ((i < packets.Count && orderedPackets[i].CompareTo(dividerPacketsToInsert[0]) > 0)
+                    || i == packets.Count)
+                {
+                    orderedPackets.Insert(i, dividerPacketsToInsert[0]);
+                    dividerPacketsToInsert.RemoveAt(0);
+                    i++;
+                }
+            }
+
+            var firstDividerIndex = orderedPackets.IndexOf(dividerPacket1) + 1;
+            var secondDividerIndex = orderedPackets.IndexOf(dividerPacket2) + 1;
+            var decoderKey = firstDividerIndex * secondDividerIndex;
+            Console.WriteLine($"Part 2: {decoderKey}");
         }
     }
 
@@ -31,12 +74,10 @@
         private static (Value Value, int Consumed) ParseInternal(ReadOnlySpan<char> input)
         {
             // [[1],[2,3,[],4]]
-
             if (input[0] == '[')
             {
                 var values = new List<Value>();
                 var consumed = 1;
-                //while (consumed != input.Length/* && input[consumed] != ']'*/)
                 while (input[consumed] != ']')
                 {
                     var (value, valueConsumed) = ParseInternal(input[consumed..]);
@@ -57,17 +98,8 @@
             else
             {
                 var numberEnd = input.IndexOfAny(new[] { ',', ']' });
-                // Consumed the number.
                 var number = int.Parse(input[..numberEnd]);
                 return (Value: new Value(number), Consumed: numberEnd);
-                //if (numberEnd == 0)
-                //{
-                //    // Found ']' on the first position, so it is an empty list.
-                //    return (Value: new Value(new Value[0]), Consumed: 1);
-                //}
-                //else
-                //{
-                //}
             }
         }
 
@@ -115,6 +147,21 @@
         public static Value MakeList(int number)
         {
             return new Value(new[] { new Value(number) });
+        }
+
+        public override string ToString()
+        {
+            if (Values != null)
+            {
+                return "[" + string.Join(",", Values) + "]";
+            }
+            else if (Number != null)
+            {
+                return Number.Value.ToString();
+            }
+
+            // Cannot happen.
+            return "";
         }
     }
 }
